@@ -1,83 +1,114 @@
 import telebot
-import logging
+from telebot import types
 
-TOKEN = "6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU"  # Токен вашего бота
-FILENAME = "survey_results.txt"  # Имя файла для сохранения результатов опроса
+bot_token = "6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU"
+bot = telebot.TeleBot(bot_token)
 
-user = {'name': '', 'team': '', 'phone': '', 'services': '', 'other_service': ''}
-
-bot = telebot.TeleBot(TOKEN)
-logger = telebot.logger
-telebot.logger.setLevel(logging.INFO)
+# Словарь для хранения информации о пользователях
+users = {}
 
 
 @bot.message_handler(commands=['start'])
-def start_message(message):
-    bot.send_message(message.chat.id, "Привет! Для начала анкетирования нажми кнопку 'Старт' ниже.",
-                     reply_markup=telebot.types.ReplyKeyboardMarkup(resize_keyboard=True).row('Старт'))
-
-
-@bot.message_handler(func=lambda message: message.text == "Старт")
-def ask_name(message):
-    bot.send_message(message.chat.id, "Введите вашу фамилию и имя:")
-    bot.register_next_step_handler(message, ask_team)
-
-
-def ask_team(message):
-    name = message.text
-    user['name'] = message.text
-    bot.send_message(message.chat.id, f"Привет, {name}! Из какой ты команды на майноре?")
-    bot.register_next_step_handler(message, ask_phone)
-
-
-def ask_phone(message):
-    team = message.text
-    user['team'] = message.text
-    bot.send_message(message.chat.id, "Введите свой номер телефона:")
-    bot.register_next_step_handler(message, ask_services)
-
-
-def ask_services(message):
-    phone = message.text
-    user['phone'] = message.text
-
-    markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.add('Создание телеграм бота', 'Создание сайта', 'Что-то другое')
-
-    bot.send_message(message.chat.id, "Какая услуга Вам нужна?", reply_markup=markup)
-    bot.register_next_step_handler(message, process_services)
-
-
-def process_services(message):
-    services = message.text
-    user['services'] = message.text
-
-    if services == 'Что-то другое':
-        bot.send_message(message.chat.id, "Напишите, какая услуга вам нужна:")
-        bot.register_next_step_handler(message, process_other)
+def start(message):
+    # Проверяем, есть ли пользователь уже сохранен в словаре
+    if message.chat.id in users:
+        bot.send_message(message.chat.id, "Вы уже начали анкетирование!")
     else:
-        finish_survey(message)
+        # Запрашиваем имя и фамилию пользователя
+        bot.send_message(message.chat.id, "Введите вашу фамилию и имя:")
+        # Создаем пустой словарь для данного пользователя
+        users[message.chat.id] = {}
 
 
-def process_other(message):
-    other_service = message.text
-    user['other_service'] = message.text
-    finish_survey(message)
+@bot.message_handler(func=lambda message: message.chat.id in users and 'name' not in users[message.chat.id])
+def get_name(message):
+    # Сохраняем имя и фамилию пользователя
+    name = message.text
+    users[message.chat.id]['name'] = name
+
+    # Приветствие и вопрос про команду на майноре
+    bot.send_message(message.chat.id, f"Привет, {name}! Из какой вы команды на майноре?")
 
 
-def finish_survey(message):
-    with open(FILENAME, 'a') as file:
-        file.write(f"Имя: {user['name']}\n")
-        file.write(f"Команда на майноре: {user['team']}\n")
-        file.write(f"Номер телефона: {user['phone']}\n")
-        file.write(f"Выбранные услуги: {user['services']}\n")
-        file.write(f"Другая услуга: {user['other_service']}\n")
-    bot.send_message(message.chat.id, "Спасибо за заполнение анкеты!")
-    bot.send_message(message.chat.id, "Мы свяжемся с вами в ближайшее время.")
-    # Удаляем клавиатуру после завершения опроса
-    bot.send_chat_action(message.chat.id, 'typing')
-    bot.send_message(message.chat.id, "Хорошего дня!", reply_markup=telebot.types.ReplyKeyboardRemove())
+@bot.message_handler(func=lambda message: message.chat.id in users and 'command' not in users[message.chat.id])
+def get_command(message):
+    # Сохраняем команду пользователя
+    command = message.text
+    users[message.chat.id]['command'] = command
+
+    # Запрашиваем номер телефона
+    bot.send_message(message.chat.id, "Введите ваш номер телефона:")
 
 
-if __name__ == '__main__':
-    bot.polling()
+@bot.message_handler(func=lambda message: message.chat.id in users and 'phone' not in users[message.chat.id])
+def get_phone(message):
+    # Сохраняем номер телефона пользователя
+    phone = message.text
+    users[message.chat.id]['phone'] = phone
+
+    # Задаем вопрос о нужных услугах с помощью Inline Keyboard
+    markup = types.InlineKeyboardMarkup()
+    button1 = types.InlineKeyboardButton("Создание телеграм бота", callback_data='bot_creation')
+    button2 = types.InlineKeyboardButton("Создание сайта", callback_data='website_creation')
+    button3 = types.InlineKeyboardButton("Что-то другое", callback_data='other')
+    markup.add(button1, button2, button3)
+
+    bot.send_message(message.chat.id, "Какие услуги Вам нужны?", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.message.chat.id in users)
+def callback_query(call):
+    chat_id = call.message.chat.id
+
+    # Обрабатываем выбор пользователя
+    if call.data == 'bot_creation':
+        users[chat_id]['service'] = 'Создание телеграм бота'
+    elif call.data == 'website_creation':
+        users[chat_id]['service'] = 'Создание сайта'
+    elif call.data == 'other':
+        # Запрашиваем другую услугу, если выбрана опция "Что-то другое"
+        bot.send_message(chat_id, "Какая услуга вам нужна?")
+        return
+
+    # Отправляем сообщение о том, что с ними свяжутся
+    bot.send_message(chat_id, "С вами свяжутся!")
+
+    # Записываем информацию в файл
+    with open("anketa.txt", "a") as file:
+        user_info = users[chat_id]
+        file.write(f"Имя: {user_info['name']}\n")
+        file.write(f"Команда на майноре: {user_info['command']}\n")
+        file.write(f"Номер телефона: {user_info['phone']}\n")
+        if 'service' in user_info:
+            file.write(f"Услуга: {user_info['service']}\n")
+        file.write("------\n")
+
+    # Удаляем пользователя из словаря
+    del users[chat_id]
+
+
+@bot.message_handler(func=lambda message: message.chat.id in users and 'service' not in users[message.chat.id])
+def get_other_service(message):
+    # Сохраняем другую услугу пользователя
+    service = message.text
+    users[message.chat.id]['service'] = service
+
+    # Отправляем сообщение о том, что с ними свяжутся
+    bot.send_message(message.chat.id, "С вами свяжутся!")
+
+    # Записываем информацию в файл
+    with open("anketa.txt", "a") as file:
+        user_info = users[message.chat.id]
+        file.write(f"Имя: {user_info['name']}\n")
+        file.write(f"Команда на майноре: {user_info['command']}\n")
+        file.write(f"Номер телефона: {user_info['phone']}\n")
+        if 'service' in user_info:
+            file.write(f"Услуга: {user_info['service']}\n")
+        file.write("------\n")
+
+    # Удаляем пользователя из словаря
+    del users[message.chat.id]
+
+
+bot.polling()
+...
