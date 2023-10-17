@@ -1,5 +1,6 @@
 import telebot
 from telebot import types
+import pandas as pd
 
 bot_token = "6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU"
 bot = telebot.TeleBot(bot_token)
@@ -74,8 +75,9 @@ def callback_query(call):
     bot.send_message(chat_id, "С вами свяжутся!")
 
     # Записываем информацию в файл
-    with open("anketa.txt", "a") as file:
+    with open("survey_result.txt", "a") as file:
         user_info = users[chat_id]
+        file.write(f"tg: {call.from_user.username}\n")
         file.write(f"Имя: {user_info['name']}\n")
         file.write(f"Команда на майноре: {user_info['command']}\n")
         file.write(f"Номер телефона: {user_info['phone']}\n")
@@ -92,7 +94,6 @@ def get_other_service(message):
     # Сохраняем другую услугу пользователя
     service = message.text
     users[message.chat.id]['service'] = service
-
     # Отправляем сообщение о том, что с ними свяжутся
     bot.send_message(message.chat.id, "С вами свяжутся!")
 
