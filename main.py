@@ -1,6 +1,5 @@
 import telebot
 from telebot import types
-import pandas as pd
 
 bot_token = "6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU"
 bot = telebot.TeleBot(bot_token)
@@ -16,7 +15,7 @@ def start(message):
         bot.send_message(message.chat.id, "Вы уже начали анкетирование!")
     else:
         # Запрашиваем имя и фамилию пользователя
-        bot.send_message(message.chat.id, "Введите вашу фамилию и имя:")
+        bot.send_message(message.chat.id, "Введите Ваше ФИО:")
         # Создаем пустой словарь для данного пользователя
         users[message.chat.id] = {}
 
@@ -27,8 +26,10 @@ def get_name(message):
     name = message.text
     users[message.chat.id]['name'] = name
 
+    s = list(name.split())
+
     # Приветствие и вопрос про команду на майноре
-    bot.send_message(message.chat.id, f"Привет, {name}! Из какой вы команды на майноре?")
+    bot.send_message(message.chat.id, f"Здравствуйте, {s[1]}! Введите название Вашей команды на майноре:")
 
 
 @bot.message_handler(func=lambda message: message.chat.id in users and 'command' not in users[message.chat.id])
@@ -68,11 +69,14 @@ def callback_query(call):
         users[chat_id]['service'] = 'Создание сайта'
     elif call.data == 'other':
         # Запрашиваем другую услугу, если выбрана опция "Что-то другое"
-        bot.send_message(chat_id, "Какая услуга вам нужна?")
+        bot.send_message(chat_id, "Какая именно услуга Вам нужна?")
         return
 
-    # Отправляем сообщение о том, что с ними свяжутся
-    bot.send_message(chat_id, "С вами свяжутся!")
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    button_restart = types.InlineKeyboardButton("Пройти анкету заново", callback_data='restart')
+    markup.add(button_restart)
+    bot.send_message(chat_id, "Спасибо! С Вами обязательно свяжутся с более подробной информацией!",
+                     reply_markup=markup)
 
     # Записываем информацию в файл
     with open("survey_result.txt", "a") as file:
@@ -95,7 +99,12 @@ def get_other_service(message):
     service = message.text
     users[message.chat.id]['service'] = service
     # Отправляем сообщение о том, что с ними свяжутся
-    bot.send_message(message.chat.id, "С вами свяжутся!")
+
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    button_restart = types.InlineKeyboardButton("Пройти анкету заново", callback_data='restart')
+    markup.add(button_restart)
+    bot.send_message(message.chat.id, "Спасибо! С Вами обязательно свяжутся с более подробной информацией!",
+                     reply_markup=markup)
 
     # Записываем информацию в файл
     with open("survey_result.txt", "a") as file:
@@ -110,6 +119,14 @@ def get_other_service(message):
 
     # Удаляем пользователя из словаря
     del users[message.chat.id]
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def restart_callback_query(call):
+    chat_id = call.message.chat.id
+    # Рестарт бота
+    if call.data == 'restart':
+        start(call.message)
 
 
 bot.polling()
