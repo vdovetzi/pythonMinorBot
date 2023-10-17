@@ -4,6 +4,8 @@ import logging
 TOKEN = "6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU"  # Токен вашего бота
 FILENAME = "survey_results.txt"  # Имя файла для сохранения результатов опроса
 
+user = {'name': '', 'team': '', 'phone': '', 'services': '', 'other_service': ''}
+
 bot = telebot.TeleBot(TOKEN)
 logger = telebot.logger
 telebot.logger.setLevel(logging.INFO)
@@ -23,24 +25,21 @@ def ask_name(message):
 
 def ask_team(message):
     name = message.text
-    with open(FILENAME, 'a') as file:
-        file.write(f"Имя: {name}\n")
+    user['name'] = message.text
     bot.send_message(message.chat.id, f"Привет, {name}! Из какой ты команды на майноре?")
     bot.register_next_step_handler(message, ask_phone)
 
 
 def ask_phone(message):
     team = message.text
-    with open(FILENAME, 'a') as file:
-        file.write(f"Команда на майноре: {team}\n")
+    user['team'] = message.text
     bot.send_message(message.chat.id, "Введите свой номер телефона:")
     bot.register_next_step_handler(message, ask_services)
 
 
 def ask_services(message):
     phone = message.text
-    with open(FILENAME, 'a') as file:
-        file.write(f"Номер телефона: {phone}\n")
+    user['phone'] = message.text
 
     markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add('Создание телеграм бота', 'Создание сайта', 'Что-то другое')
@@ -51,8 +50,7 @@ def ask_services(message):
 
 def process_services(message):
     services = message.text
-    with open(FILENAME, 'a') as file:
-        file.write(f"Выбранные услуги: {services}\n")
+    user['services'] = message.text
 
     if services == 'Что-то другое':
         bot.send_message(message.chat.id, "Напишите, какая услуга вам нужна:")
@@ -63,15 +61,19 @@ def process_services(message):
 
 def process_other(message):
     other_service = message.text
-    with open(FILENAME, 'a') as file:
-        file.write(f"Другая услуга: {other_service}\n")
+    user['other_service'] = message.text
     finish_survey(message)
 
 
 def finish_survey(message):
+    with open(FILENAME, 'a') as file:
+        file.write(f"Имя: {user['name']}\n")
+        file.write(f"Команда на майноре: {user['team']}\n")
+        file.write(f"Номер телефона: {user['phone']}\n")
+        file.write(f"Выбранные услуги: {user['services']}\n")
+        file.write(f"Другая услуга: {user['other_service']}\n")
     bot.send_message(message.chat.id, "Спасибо за заполнение анкеты!")
     bot.send_message(message.chat.id, "Мы свяжемся с вами в ближайшее время.")
-
     # Удаляем клавиатуру после завершения опроса
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(message.chat.id, "Хорошего дня!", reply_markup=telebot.types.ReplyKeyboardRemove())
