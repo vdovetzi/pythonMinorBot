@@ -29,8 +29,12 @@ def get_name(message):
     s = list(name.split())
 
     # Приветствие и вопрос про команду на майноре
-    bot.send_message(message.chat.id, f"Здравствуйте, {s[1]}! Введите название Вашей команды на майноре:")
-
+    try:
+        bot.send_message(message.chat.id, f"Здравствуйте, {s[1]}! Введите название Вашей команды на майноре:")
+    except IndexError:
+        bot.send_message(message.chat.id, f"Вы не ввели имя или фамилию :( Попробуйте ещё раз!")
+        del users[message.chat.id]
+        start(message)
 
 @bot.message_handler(func=lambda message: message.chat.id in users and 'command' not in users[message.chat.id])
 def get_command(message):
@@ -126,6 +130,8 @@ def restart_callback_query(call):
     chat_id = call.message.chat.id
     # Рестарт бота
     if call.data == 'restart':
+        with open("survey_result.txt", "a") as file:
+            file.write("Пользователь сверху ^^^ отменил свой запрос и нажал кнопку пройти анкету заново\n")
         start(call.message)
 
 
