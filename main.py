@@ -47,7 +47,7 @@ def get_phone(message):
     users[message.chat.id]['phone'] = phone
 
     # Задаем вопрос о нужных услугах с помощью Inline Keyboard
-    markup = types.InlineKeyboardMarkup()
+    markup = types.InlineKeyboardMarkup(row_width=1)
     button1 = types.InlineKeyboardButton("Создание телеграм бота", callback_data='bot_creation')
     button2 = types.InlineKeyboardButton("Создание сайта", callback_data='website_creation')
     button3 = types.InlineKeyboardButton("Что-то другое", callback_data='other')
