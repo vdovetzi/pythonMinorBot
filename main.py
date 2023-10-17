@@ -97,8 +97,9 @@ def get_other_service(message):
     bot.send_message(message.chat.id, "С вами свяжутся!")
 
     # Записываем информацию в файл
-    with open("anketa.txt", "a") as file:
+    with open("survey_result.txt", "a") as file:
         user_info = users[message.chat.id]
+        file.write(f"tg: {message.from_user.username}\n")
         file.write(f"Имя: {user_info['name']}\n")
         file.write(f"Команда на майноре: {user_info['command']}\n")
         file.write(f"Номер телефона: {user_info['phone']}\n")
