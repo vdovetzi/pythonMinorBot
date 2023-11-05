@@ -1,139 +1,162 @@
-import telebot
-from telebot import types
+import logging
+from aiogram import Bot, Dispatcher, types
+from aiocron import crontab
 
-bot_token = "6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU"
-bot = telebot.TeleBot(bot_token)
+TOKEN = '6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU'
+CREATOR_ID = ['1060587375', '1206893410', '2113264646']
 
-# Словарь для хранения информации о пользователях
-users = {}
+logging.basicConfig(level=logging.INFO)
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher(bot)
+
+subscribers_list = set()
+
+regular_message = "Регулярное сообщение"
+pending_document = None
+pending_text_message = None
 
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    # Проверяем, есть ли пользователь уже сохранен в словаре
-    if message.chat.id in users:
-        bot.send_message(message.chat.id, "Вы уже начали анкетирование!")
+# START
+@dp.message_handler(commands=['start'])
+async def start(message: types.Message):
+    global subscribers_list
+    print(str(message.chat.id))
+    subscribers_list.add(message.chat.id)
+    keyboard_markup = types.ReplyKeyboardMarkup(row_width=2)
+    faq_button = types.KeyboardButton('FAQ')
+    menu_button = types.KeyboardButton('Меню')
+    location_button = types.KeyboardButton('Показать геолокацию')
+    keyboard_markup.add(faq_button, menu_button, location_button)
+
+    await message.answer("Добро пожаловать в нашу кофейню! Чем я могу вам помочь?", reply_markup=keyboard_markup)
+
+
+# FAQ
+@dp.message_handler(text='FAQ')
+async def send_faq(message: types.Message):
+    await message.answer("Здесь вы можете найти ответы на часто задаваемые вопросы:\n\n"
+                         "1) Почему ваш кофе такой вкусный?\nОтвет: его готовят из отборных сортов арабики.")
+
+
+# Установить новое регулярное сообщение
+@dp.message_handler(commands=['set_regular_message'])
+async def set_regular_message_command(message: types.Message):
+    global regular_message
+    if str(message.from_user.id) in CREATOR_ID:
+        args = message.get_args()
+        if args:
+            regular_message = args
+            await message.answer("Регулярное сообщение успешно изменено.")
+        else:
+            await message.answer("Неверный формат команды. Используйте /set_regular_message [сообщение]")
     else:
-        # Запрашиваем имя и фамилию пользователя
-        bot.send_message(message.chat.id, "Введите Ваше ФИО:")
-        # Создаем пустой словарь для данного пользователя
-        users[message.chat.id] = {}
+        await message.answer("Извините, доступ к этой команде есть только у создателя бота.")
 
 
-@bot.message_handler(func=lambda message: message.chat.id in users and 'name' not in users[message.chat.id])
-def get_name(message):
-    # Сохраняем имя и фамилию пользователя
-    name = message.text
-    users[message.chat.id]['name'] = name
+@dp.message_handler(commands=['broadcast_message'])
+async def set_regular_message_command(message: types.Message):
+    global pending_text_message
+    if str(message.from_user.id) in CREATOR_ID:
+        args = message.get_args()
+        if args:
+            pending_text_message = args
+            confirmation_keyboard_markup = types.InlineKeyboardMarkup()
+            confirm_button = types.InlineKeyboardButton('Да', callback_data='confirm_message')
+            cancel_button = types.InlineKeyboardButton('Отмена', callback_data='cancel_message')
+            confirmation_keyboard_markup.row(confirm_button, cancel_button)
 
-    s = list(name.split())
-
-    # Приветствие и вопрос про команду на майноре
-    try:
-        bot.send_message(message.chat.id, f"Здравствуйте, {s[1]}! Введите название Вашей команды на майноре:")
-    except IndexError:
-        bot.send_message(message.chat.id, f"Вы не ввели имя или фамилию :( Попробуйте ещё раз!")
-        del users[message.chat.id]
-        start(message)
-
-@bot.message_handler(func=lambda message: message.chat.id in users and 'command' not in users[message.chat.id])
-def get_command(message):
-    # Сохраняем команду пользователя
-    command = message.text
-    users[message.chat.id]['command'] = command
-
-    # Запрашиваем номер телефона
-    bot.send_message(message.chat.id, "Введите ваш номер телефона:")
+            await message.answer("Сделать рассылку с сообщением?", reply_markup=confirmation_keyboard_markup)
+        else:
+            await message.answer("Неверный формат команды. Используйте /broadcast_message [сообщение]")
+    else:
+        await message.answer("Извините, доступ к этой команде есть только у создателя бота.")
 
 
-@bot.message_handler(func=lambda message: message.chat.id in users and 'phone' not in users[message.chat.id])
-def get_phone(message):
-    # Сохраняем номер телефона пользователя
-    phone = message.text
-    users[message.chat.id]['phone'] = phone
+@dp.callback_query_handler(lambda c: c.data == 'confirm_message')
+async def send_message_to_subscribers(callback_query: types.CallbackQuery):
+    if str(callback_query.from_user.id) in CREATOR_ID:
+        subscribers = get_subscribers()
+        for subscriber in subscribers:
+            await bot.send_message(subscriber, str(pending_text_message))
 
-    # Задаем вопрос о нужных услугах с помощью Inline Keyboard
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    button1 = types.InlineKeyboardButton("Создание телеграм бота", callback_data='bot_creation')
-    button2 = types.InlineKeyboardButton("Создание сайта", callback_data='website_creation')
-    button3 = types.InlineKeyboardButton("Что-то другое", callback_data='other')
-    markup.add(button1, button2, button3)
-
-    bot.send_message(message.chat.id, "Какие услуги Вам нужны?", reply_markup=markup)
+        await bot.send_message(callback_query.from_user.id, "Рассылка успешно выполнена.")
+    else:
+        await bot.send_message(callback_query.from_user.id, "Ошибка: доступ ограничен.")
 
 
-@bot.callback_query_handler(func=lambda call: call.message.chat.id in users)
-def callback_query(call):
-    chat_id = call.message.chat.id
-
-    # Обрабатываем выбор пользователя
-    if call.data == 'bot_creation':
-        users[chat_id]['service'] = 'Создание телеграм бота'
-    elif call.data == 'website_creation':
-        users[chat_id]['service'] = 'Создание сайта'
-    elif call.data == 'other':
-        # Запрашиваем другую услугу, если выбрана опция "Что-то другое"
-        bot.send_message(chat_id, "Какая именно услуга Вам нужна?")
-        return
-
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    button_restart = types.InlineKeyboardButton("Пройти анкету заново", callback_data='restart')
-    markup.add(button_restart)
-    bot.send_message(chat_id, "Спасибо! С Вами обязательно свяжутся с более подробной информацией!",
-                     reply_markup=markup)
-
-    # Записываем информацию в файл
-    with open("survey_result.txt", "a") as file:
-        user_info = users[chat_id]
-        file.write(f"tg: {call.from_user.username}\n")
-        file.write(f"Имя: {user_info['name']}\n")
-        file.write(f"Команда на майноре: {user_info['command']}\n")
-        file.write(f"Номер телефона: {user_info['phone']}\n")
-        if 'service' in user_info:
-            file.write(f"Услуга: {user_info['service']}\n")
-        file.write("------\n")
-
-    # Удаляем пользователя из словаря
-    del users[chat_id]
+@dp.callback_query_handler(lambda c: c.data == 'cancel_message')
+async def cancel_message(callback_query: types.CallbackQuery):
+    if str(callback_query.from_user.id) == CREATOR_ID:
+        await bot.send_message(callback_query.from_user.id, "Рассылка отменена.")
+    else:
+        await bot.send_message(callback_query.from_user.id, "Ошибка: доступ ограничен.")
 
 
-@bot.message_handler(func=lambda message: message.chat.id in users and 'service' not in users[message.chat.id])
-def get_other_service(message):
-    # Сохраняем другую услугу пользователя
-    service = message.text
-    users[message.chat.id]['service'] = service
-    # Отправляем сообщение о том, что с ними свяжутся
-
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    button_restart = types.InlineKeyboardButton("Пройти анкету заново", callback_data='restart')
-    markup.add(button_restart)
-    bot.send_message(message.chat.id, "Спасибо! С Вами обязательно свяжутся с более подробной информацией!",
-                     reply_markup=markup)
-
-    # Записываем информацию в файл
-    with open("survey_result.txt", "a") as file:
-        user_info = users[message.chat.id]
-        file.write(f"tg: {message.from_user.username}\n")
-        file.write(f"Имя: {user_info['name']}\n")
-        file.write(f"Команда на майноре: {user_info['command']}\n")
-        file.write(f"Номер телефона: {user_info['phone']}\n")
-        if 'service' in user_info:
-            file.write(f"Услуга: {user_info['service']}\n")
-        file.write("------\n")
-
-    # Удаляем пользователя из словаря
-    del users[message.chat.id]
+@dp.message_handler(text='Меню')
+async def send_menu(message: types.Message):
+    with open('Меню осень 2023.pdf', 'rb') as file:
+        await bot.send_document(message.chat.id, file)
 
 
-@bot.callback_query_handler(func=lambda call: True)
-def restart_callback_query(call):
-    chat_id = call.message.chat.id
-    # Рестарт бота
-    if call.data == 'restart':
-        with open("survey_result.txt", "a") as file:
-            file.write("Пользователь сверху ^^^ отменил свой запрос и нажал кнопку пройти анкету заново\n")
-        start(call.message)
+@dp.message_handler(text='Показать геолокацию')
+async def send_location(message: types.Message):
+    latitude = 37.7749
+    longitude = -122.4194
+    await bot.send_location(message.chat.id, latitude, longitude)
 
 
-bot.polling()
-...
+@dp.message_handler(content_types=['document'])
+async def handle_new_document(message: types.Message):
+    if str(message.from_user.id) in CREATOR_ID:
+        global pending_document
+        pending_document = message.document.file_id
+
+        confirmation_keyboard_markup = types.InlineKeyboardMarkup()
+        confirm_button = types.InlineKeyboardButton('Да', callback_data='confirm_document')
+        cancel_button = types.InlineKeyboardButton('Отмена', callback_data='cancel_document')
+        confirmation_keyboard_markup.row(confirm_button, cancel_button)
+
+        await message.answer("Сделать рассылку с документом?", reply_markup=confirmation_keyboard_markup)
+    else:
+        # Обработка документов от обычных пользователей
+        await message.answer("Принято документ.")
+
+
+@dp.callback_query_handler(lambda c: c.data == 'confirm_document')
+async def send_document_to_subscribers(callback_query: types.CallbackQuery):
+    if str(callback_query.from_user.id) in CREATOR_ID:
+        subscribers = get_subscribers()
+        for subscriber in subscribers:
+            await bot.send_document(subscriber, pending_document)
+
+        await bot.send_message(callback_query.from_user.id, "Рассылка успешно выполнена.")
+    else:
+        await bot.send_message(callback_query.from_user.id, "Ошибка: доступ ограничен.")
+
+
+@dp.callback_query_handler(lambda c: c.data == 'cancel_document')
+async def cancel_document(callback_query: types.CallbackQuery):
+    if str(callback_query.from_user.id) in CREATOR_ID:
+        await bot.send_message(callback_query.from_user.id, "Рассылка отменена.")
+    else:
+        await bot.send_message(callback_query.from_user.id, "Ошибка: доступ ограничен.")
+
+
+def get_subscribers():
+    # Здесь можно реализовать получение списка подписчиков
+    return subscribers_list
+
+
+@crontab('* * * * *')
+async def scheduled_message():
+    # Рассылка сообщения раз в минуту
+    subscribers = get_subscribers()
+    for subscriber in subscribers:
+        await bot.send_message(subscriber, regular_message)
+
+
+if __name__ == '__main__':
+    from aiogram import executor
+
+    executor.start_polling(dp, skip_updates=True)
