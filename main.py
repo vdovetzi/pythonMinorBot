@@ -2,8 +2,9 @@ import logging
 from aiogram import Bot, Dispatcher, types
 from aiocron import crontab
 
-TOKEN = '6053071242:AAGWljaFwR40j151jcRrxrScLUf32FrpNHU'
-CREATOR_ID = ['1060587375', '1206893410', '2113264646']
+TOKEN = '6494255647:AAEfltrFuKo26imOQDezqi6mgCsKUWFNlgU'
+
+CREATOR_ID = ['1060587375']
 
 logging.basicConfig(level=logging.INFO)
 
@@ -12,7 +13,7 @@ dp = Dispatcher(bot)
 
 subscribers_list = set()
 
-regular_message = "Регулярное сообщение"
+regular_message = "Регулярное сообщениею."
 pending_document = None
 pending_text_message = None
 
@@ -24,10 +25,10 @@ async def start(message: types.Message):
     print(str(message.chat.id))
     subscribers_list.add(message.chat.id)
     keyboard_markup = types.ReplyKeyboardMarkup(row_width=2)
-    faq_button = types.KeyboardButton('FAQ')
     menu_button = types.KeyboardButton('Меню')
     location_button = types.KeyboardButton('Показать геолокацию')
-    keyboard_markup.add(faq_button, menu_button, location_button)
+    faq_button = types.KeyboardButton('FAQ')
+    keyboard_markup.add(menu_button, faq_button, location_button)
 
     await message.answer("Добро пожаловать в нашу кофейню! Чем я могу вам помочь?", reply_markup=keyboard_markup)
 
@@ -148,12 +149,12 @@ def get_subscribers():
     return subscribers_list
 
 
-@crontab('* * * * *')
-async def scheduled_message():
-    # Рассылка сообщения раз в минуту
-    subscribers = get_subscribers()
-    for subscriber in subscribers:
-        await bot.send_message(subscriber, regular_message)
+# @crontab('* * * * *')
+# async def scheduled_message():
+#     # Рассылка сообщения раз в минуту
+#     subscribers = get_subscribers()
+#     for subscriber in subscribers:
+#         await bot.send_message(subscriber, regular_message)
 
 
 if __name__ == '__main__':
