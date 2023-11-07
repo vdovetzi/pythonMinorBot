@@ -1,8 +1,9 @@
 import logging
 from aiogram import Bot, Dispatcher, types
 from aiocron import crontab
+from config import API_KEY
 
-TOKEN = '6494255647:AAEfltrFuKo26imOQDezqi6mgCsKUWFNlgU'
+TOKEN = API_KEY
 CREATOR_ID = ['1060587375']
 
 logging.basicConfig(level=logging.INFO)
