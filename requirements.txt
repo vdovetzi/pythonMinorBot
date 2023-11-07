@@ -91,3 +91,11 @@ wcwidth==0.2.5
 webencodings==0.5.1
 websocket-client==1.4.1
 websockets==10.3
+aiogram
+requests
+bs4
+html2image
+pillow
+psycopg2
+aiocron
+logging
