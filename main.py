@@ -96,7 +96,7 @@ async def cancel_message(callback_query: types.CallbackQuery):
 
 @dp.message_handler(text='Меню')
 async def send_menu(message: types.Message):
-    with open('Меню осень 2023.pdf', 'rb') as file:
+    with open('docs/Меню осень 2023.pdf', 'rb') as file:
         await bot.send_document(message.chat.id, file)
 
 
