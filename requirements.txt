@@ -98,4 +98,3 @@ html2image
 pillow
 psycopg2
 aiocron
-logging
