@@ -13,7 +13,7 @@ dp = Dispatcher(bot)
 
 subscribers_list = set()
 
-regular_message = "Регулярное сообщениею."
+regular_message = "Регулярное сообщение."
 pending_document = None
 pending_text_message = None
 
