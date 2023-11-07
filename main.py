@@ -1,9 +1,9 @@
 import logging
 from aiogram import Bot, Dispatcher, types
 from aiocron import crontab
+from config import API_KEY
 
-TOKEN = '6494255647:AAEfltrFuKo26imOQDezqi6mgCsKUWFNlgU'
-
+TOKEN = API_KEY
 CREATOR_ID = ['1060587375']
 
 logging.basicConfig(level=logging.INFO)
@@ -13,7 +13,7 @@ dp = Dispatcher(bot)
 
 subscribers_list = set()
 
-regular_message = "Регулярное сообщение. Test."
+regular_message = "Регулярное сообщение."
 pending_document = None
 pending_text_message = None
 
@@ -96,7 +96,7 @@ async def cancel_message(callback_query: types.CallbackQuery):
 
 @dp.message_handler(text='Меню')
 async def send_menu(message: types.Message):
-    with open('Меню осень 2023.pdf', 'rb') as file:
+    with open('docs/Меню осень 2023.pdf', 'rb') as file:
         await bot.send_document(message.chat.id, file)
 
 
